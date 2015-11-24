@@ -1,11 +1,15 @@
 #!/bin/bash
+if [ -z $CROSS_COMPILE ]; then
+	echo "please set CROSS_COMPILE to the toolchain bin directory first"
+	exit 1
+fi
 # replace a few things in ramdisk
 rm ~/voltunotoolkit/AIK-Linux/ramdisk/default.prop
 cp ~/voltunotoolkit/tools/default.prop ~/voltunotoolkit/AIK-Linux/ramdisk/
 rm ~/voltunotoolkit/AIK-Linux/ramdisk/init.rc
 cp ~/voltunotoolkit/tools/init.rc ~/voltunotoolkit/AIK-Linux/ramdisk/
 # delete old modules, zip and boot image
-rm voltunov33.zip
+rm volt_dos.zip
 rm boot.img
 rm -r system
 mkdir -p ~/voltunotoolkit/system/lib/
@@ -18,19 +22,35 @@ make mrproper
 # kernel and modules build
 export TARGET_PRODUCT=x5_spr_us
 export DTS_TARGET=msm8226-x5_spr_us
-export PATH=$PATH:tools/lz4demo
-make voltuno_defconfig
-make -j4
+export PATH=$PATH:~/voltunotoolkit/tools
+export ARCH=arm
+export SUBARCH=arm
+make x5_spr_us_defconfig
+#make voltuno_defconfig
+make -j3
 # back to main dir
 cd ..
+#make dtimage
+./tools/dtbTool -2 -o ./dt.img -s 2048 -p ./kernel/scripts/dtc/ ./kernel/arch/arm/boot/
 # get to the right directory, delete old boot image
 cd AIK-Linux
 rm image-new.img
 # copy zimage to AIK, rename it properly
 cd split_img
 rm boot.img-zImage
-cp ~/voltunotoolkit/kernel/arch/arm/boot/zImage ~/voltunotoolkit/AIK-Linux/split_img/
+rm boot.img-dtb
+if [ ! -e ~/voltunotoolkit/kernel/arch/arm/boot/zImage ] ; then
+	echo "zImage missing, build failed"
+	exit 1
+fi
+if [ ! -e ~/voltunotoolkit/dt.img ] ; then
+	echo "dt.img missing, build failed"
+	exit 1
+fi
+
+cp ~/voltunotoolkit/kernel/arch/arm/boot/zImage ~/voltunotoolkit/dt.img  ~/voltunotoolkit/AIK-Linux/split_img/
 mv zImage boot.img-zImage
+mv dt.img boot.img-dtb
 # back to main AIK directory
 cd ..
 # repack boot image
@@ -96,5 +116,5 @@ rm -r modules
 # Move back to default dir
 cd ..
 # zip everything up to ship out
-zip voltunov33.zip boot.img -r system -r META-INF
+zip volt_dos.zip boot.img -r system -r META-INF
 
